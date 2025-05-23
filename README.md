@@ -1,4 +1,4 @@
-# CloudNativePG Python Application Demo
+# CloudNativePG (with MinIO storage) and Python Application Demo
 
 This demo application showcases how to work with CloudNativePG using Python, FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
 
