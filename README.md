@@ -1,6 +1,6 @@
 # CloudNativePG Python Application Demo
 
-This demo application showcases how to work with CloudNativePG using FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
+This demo application showcases how to work with CloudNativePG using Python, FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
 
 ## Features
 
@@ -511,3 +511,42 @@ SELECT * FROM test;
 ```
 
 Note: The password `change-me-in-production` should be changed in production environments by updating the `app-user-secret` in `k8s/secrets.yaml`. 
+
+## Cleanup
+
+To clean up all resources after testing:
+
+```bash
+# Delete the FastAPI application
+kubectl delete -f k8s/app-deployment.yaml
+
+# Delete the PostgreSQL cluster (this will delete all PVCs and data)
+kubectl delete -f k8s/cluster.yaml
+
+# Delete secrets
+kubectl delete -f k8s/secrets.yaml
+
+# Delete MinIO service
+kubectl delete -f k8s/minio-service.yaml
+
+# Stop port-forwarding processes (if any)
+pkill -f "kubectl port-forward"
+
+# Stop and remove MinIO container
+docker stop minio
+docker rm minio
+
+# Remove MinIO network
+docker network rm minio-network
+
+# Optional: Remove local Docker images
+docker rmi fastapi-demo:latest
+docker rmi minio/minio
+docker rmi postgres:15
+
+# Optional: Uninstall CloudNativePG operator
+helm uninstall cloudnative-pg -n cnpg-system
+kubectl delete namespace cnpg-system
+```
+
+Note: Be careful when running cleanup commands in a production environment. Make sure to backup any important data before deleting resources. 
