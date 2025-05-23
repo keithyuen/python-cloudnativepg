@@ -550,3 +550,35 @@ kubectl delete namespace cnpg-system
 ```
 
 Note: Be careful when running cleanup commands in a production environment. Make sure to backup any important data before deleting resources. 
+
+## Quick Start
+
+You can use the provided scripts to quickly deploy or clean up the entire application:
+
+### Deploy Everything
+```bash
+# Deploy all components (MinIO, CloudNativePG, FastAPI app)
+./deploy.sh
+```
+
+This script will:
+1. Set up Python virtual environment
+2. Deploy MinIO and create required bucket
+3. Build the FastAPI application
+4. Install CloudNativePG operator (if not present)
+5. Deploy PostgreSQL cluster and application
+6. Set up port forwarding
+
+### Clean Up
+```bash
+# Clean up all resources
+./cleanup.sh
+```
+
+This script will:
+1. Remove all Kubernetes resources
+2. Clean up Docker containers and networks
+3. Optionally remove Docker images
+4. Optionally uninstall CloudNativePG operator
+
+For manual deployment steps, see the detailed instructions below. 
