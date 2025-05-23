@@ -14,7 +14,38 @@ This demo application showcases how to work with CloudNativePG using FastAPI and
 
 ## Prerequisites Installation
 
-### 1. Install kubectl
+### 1. Install Python
+```bash
+# macOS with Homebrew
+brew install python@3.11
+# Verify installation
+python3 --version
+# Install pip if not already installed
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python3 get-pip.py
+
+# Linux (Ubuntu/Debian)
+sudo apt update
+sudo apt install python3 python3-pip
+# Verify installation
+python3 --version
+pip3 --version
+
+# Windows with Chocolatey
+choco install python
+# Verify installation
+python --version
+pip --version
+
+# Optional: Create a virtual environment (recommended)
+python3 -m venv venv
+# macOS/Linux
+source venv/bin/activate
+# Windows
+.\venv\Scripts\activate
+```
+
+### 2. Install kubectl
 ```bash
 # macOS with Homebrew
 brew install kubectl
@@ -27,7 +58,7 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 choco install kubernetes-cli
 ```
 
-### 2. Install Helm
+### 3. Install Helm
 ```bash
 # macOS with Homebrew
 brew install helm
@@ -39,7 +70,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 choco install kubernetes-helm
 ```
 
-### 3. Set up a Kubernetes cluster
+### 4. Set up a Kubernetes cluster
 
 Choose one of these options:
 
@@ -65,26 +96,152 @@ minikube start --memory=4096 --cpus=2
 2. Enable Kubernetes in Docker Desktop settings
 3. Wait for Kubernetes to start
 
-### 4. Set up S3-compatible storage for backups
+### 5. Set up S3-compatible storage for backups
 
 You can use one of these options:
 - AWS S3: Create an account and bucket at [AWS Console](https://aws.amazon.com/)
 - MinIO: For local development
-```bash
-# Install MinIO locally using Docker
-docker run -d \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  -e "MINIO_ROOT_USER=minioadmin" \
-  -e "MINIO_ROOT_PASSWORD=minioadmin" \
-  minio/minio server /data --console-address ":9001"
 
-# Create a bucket using MinIO Client
-docker run --rm -it minio/mc alias set myminio http://localhost:9000 minioadmin minioadmin
-docker run --rm -it minio/mc mb myminio/cloudnativepg-backup
+#### Setting up MinIO:
+
+1. Create a Docker network for MinIO:
+```bash
+docker network create minio-network
 ```
 
-### 5. Verify Prerequisites
+2. Start MinIO server:
+```bash
+# These are the default credentials we're setting:
+# ACCESS_KEY_ID = minioadmin
+# SECRET_KEY = minioadmin
+docker run -d \
+  --name minio \
+  --network minio-network \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -e "MINIO_ROOT_USER=minioadmin" \  # This is your ACCESS_KEY_ID
+  -e "MINIO_ROOT_PASSWORD=minioadmin" \  # This is your SECRET_KEY
+  minio/minio server /data --console-address ":9001"
+```
+
+3. Create a bucket using MinIO Client:
+```bash
+# For macOS/Linux
+docker run --rm --network minio-network \
+  minio/mc alias set myminio http://minio:9000 minioadmin minioadmin
+
+docker run --rm --network minio-network \
+  minio/mc mb myminio/cloudnativepg-backup
+
+# For Windows PowerShell
+docker run --rm --network minio-network `
+  minio/mc alias set myminio http://minio:9000 minioadmin minioadmin
+
+docker run --rm --network minio-network `
+  minio/mc mb myminio/cloudnativepg-backup
+```
+
+4. Update credentials in secrets:
+```bash
+# Update k8s/secrets.yaml with MinIO credentials
+cat > k8s/secrets.yaml << EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-user-secret
+type: Opaque
+stringData:
+  username: app_user
+  password: change-me-in-production  # Change this in production!
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-creds
+type: Opaque
+stringData:
+  ACCESS_KEY_ID: minioadmin      # Same as MINIO_ROOT_USER
+  ACCESS_SECRET_KEY: minioadmin   # Same as MINIO_ROOT_PASSWORD
+EOF
+```
+
+5. Update cluster configuration:
+   When using MinIO locally, update the following in `k8s/cluster.yaml`:
+   ```yaml
+   backup:
+     barmanObjectStore:
+       destinationPath: s3://cloudnativepg-backup/
+       endpointURL: http://minio:9000  # Using service name in Docker network
+       s3Credentials:
+         accessKeyId:
+           name: s3-creds
+           key: ACCESS_KEY_ID
+         secretAccessKey:
+           name: s3-creds
+           key: ACCESS_SECRET_KEY
+   ```
+
+6. Verify MinIO access:
+```bash
+# Check MinIO is running
+docker ps | grep minio
+
+# First, create the alias and verify it works
+docker run --rm --network minio-network minio/mc alias set myminio http://minio:9000 minioadmin minioadmin
+
+# Create the bucket
+docker run --rm --network minio-network minio/mc mb --ignore-existing myminio/cloudnativepg-backup
+
+# List all buckets (this should work now since we're using --ignore-existing above)
+docker run --rm --network minio-network minio/mc ls myminio
+
+# List the specific bucket contents
+docker run --rm --network minio-network minio/mc ls myminio/cloudnativepg-backup
+
+# Optional: You can also use the MinIO client to copy a test file
+echo "test" > test.txt
+docker run --rm --network minio-network -v $(pwd)/test.txt:/test.txt minio/mc cp /test.txt myminio/cloudnativepg-backup/
+rm test.txt
+```
+
+Expected output should look like:
+```
+Added `myminio` successfully.
+Bucket created successfully `myminio/cloudnativepg-backup`.
+[2024-xx-xx xx:xx:xx]     0B cloudnativepg-backup/
+```
+
+You can also access the MinIO Console UI:
+- URL: http://localhost:9001
+- Username: minioadmin
+- Password: minioadmin
+
+Note: Each MinIO client command needs to be run separately because:
+1. The MinIO client container is designed to run single commands
+2. For automation, you might want to use the MinIO SDK instead
+3. The Console UI is recommended for interactive management
+
+Troubleshooting:
+- If you see "connection refused" errors, make sure the MinIO server is running:
+  ```bash
+  docker ps | grep minio
+  # If not running, start it again:
+  docker run -d \
+    --name minio \
+    --network minio-network \
+    -p 9000:9000 \
+    -p 9001:9001 \
+    -e "MINIO_ROOT_USER=minioadmin" \
+    -e "MINIO_ROOT_PASSWORD=minioadmin" \
+    minio/minio server /data --console-address ":9001"
+  ```
+- If you need to start fresh, you can remove and recreate the container:
+  ```bash
+  docker rm -f minio
+  # Then start again from step 2
+  ```
+
+### 6. Verify Prerequisites
 ```bash
 # Check kubectl installation
 kubectl version --client
@@ -102,8 +259,19 @@ aws s3 ls s3://your-bucket/
 ## Application Setup
 
 1. Clone the repository
-2. Install dependencies:
+
+2. Set up Python environment:
    ```bash
+   # Create virtual environment
+   python3 -m venv venv
+   
+   # Activate virtual environment
+   # macOS/Linux
+   source venv/bin/activate
+   # Windows
+   .\venv\Scripts\activate
+   
+   # Install dependencies
    pip install -r requirements.txt
    ```
 
@@ -290,4 +458,56 @@ docker logs $(docker ps -q --filter name=minio)
 kubectl describe pod -l postgresql=pg-demo-cluster
 # Check operator logs
 kubectl logs -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg
-``` 
+```
+
+## Connecting to CloudNativePG Database
+
+There are two ways to connect to the PostgreSQL database:
+
+### Method 1: Using Port Forward
+```bash
+# Forward the PostgreSQL primary service port
+kubectl port-forward svc/pg-demo-cluster-rw 5432:5432
+
+# Connect using psql (if you have it installed locally)
+PGPASSWORD=change-me-in-production psql -h localhost -p 5432 -U app_user -d app_db
+
+# Or use PostgreSQL client via Docker
+docker run -it --rm --network host postgres:15 psql "postgresql://app_user:change-me-in-production@localhost:5432/app_db"
+```
+
+### Method 2: Using Temporary Pod (Recommended)
+```bash
+# Connect to primary (read-write)
+kubectl run psql-client --rm -it --image=postgres:15 -- psql "postgresql://app_user:change-me-in-production@pg-demo-cluster-rw:5432/app_db"
+
+# Connect to replica (read-only)
+kubectl run psql-client --rm -it --image=postgres:15 -- psql "postgresql://app_user:change-me-in-production@pg-demo-cluster-r:5432/app_db"
+```
+
+### Useful psql Commands
+Once connected, you can use these psql commands:
+```sql
+-- List all tables
+\dt
+
+-- Show connection info
+\conninfo
+
+-- Show table schema
+\d+ table_name
+
+-- Create a test table
+CREATE TABLE test (id serial primary key, name text);
+
+-- Insert test data
+INSERT INTO test (name) VALUES ('test1');
+
+-- Query data
+SELECT * FROM test;
+
+-- Exit psql
+\q
+```
+
+Note: The password `change-me-in-production` should be changed in production environments by updating the `app-user-secret` in `k8s/secrets.yaml`. 

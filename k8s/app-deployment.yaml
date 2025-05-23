@@ -16,20 +16,15 @@ spec:
     spec:
       containers:
       - name: fastapi-demo
-        image: fastapi-demo:latest  # Update with your image
+        image: fastapi-demo:latest
+        imagePullPolicy: Never  # Use local image
         ports:
         - containerPort: 8000
         env:
         - name: PRIMARY_DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: app-db-urls
-              key: PRIMARY_DB_URL
+          value: "postgresql://app_user:change-me-in-production@pg-demo-cluster-rw:5432/app_db"
         - name: REPLICA_DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: app-db-urls
-              key: REPLICA_DB_URL
+          value: "postgresql://app_user:change-me-in-production@pg-demo-cluster-r:5432/app_db"
         livenessProbe:
           httpGet:
             path: /health
@@ -53,4 +48,4 @@ spec:
   ports:
   - port: 80
     targetPort: 8000
-  type: ClusterIP 
+  type: LoadBalancer 
