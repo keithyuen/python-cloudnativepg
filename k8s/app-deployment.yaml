@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-demo
+  labels:
+    app: fastapi-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fastapi-demo
+  template:
+    metadata:
+      labels:
+        app: fastapi-demo
+    spec:
+      containers:
+      - name: fastapi-demo
+        image: fastapi-demo:latest  # Update with your image
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PRIMARY_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-db-urls
+              key: PRIMARY_DB_URL
+        - name: REPLICA_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-db-urls
+              key: REPLICA_DB_URL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi-demo
+spec:
+  selector:
+    app: fastapi-demo
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP 

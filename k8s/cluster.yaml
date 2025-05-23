@@ -1,0 +1,46 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-demo-cluster
+spec:
+  instances: 3  # 1 primary and 2 replicas
+  
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "256MB"
+      
+  # Storage configuration
+  storage:
+    size: 1Gi
+    storageClass: standard  # Adjust according to your cluster's storage class
+    
+  # Backup configuration
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: s3://your-bucket/
+      endpointURL: https://s3.amazonaws.com
+      s3Credentials:
+        accessKeyId:
+          name: s3-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: s3-creds
+          key: ACCESS_SECRET_KEY
+          
+  # Monitoring configuration
+  monitoring:
+    enablePodMonitor: true
+    
+  # High availability settings
+  primaryUpdateStrategy: unsupervised
+  
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: app_db
+      owner: app_user
+      secret:
+        name: app-user-secret 
