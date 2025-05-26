@@ -1,4 +1,4 @@
-# CloudNativePG (with MinIO storage) and Python Application Demo
+# CloudNativePG (with MinIO backup) and Python Application Demo
 
 This demo application showcases how to work with CloudNativePG using Python, FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
 
@@ -74,22 +74,10 @@ choco install kubernetes-helm
 
 Choose one of these options:
 
-#### Option A: Local Development with minikube
-```bash
-# Install minikube
-# macOS
-brew install minikube
-
-# Linux
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-
-# Windows with Chocolatey
-choco install minikube
-
-# Start minikube
-minikube start --memory=4096 --cpus=2
-```
+#### Option A: Local Development with OrbStack
+1. Install [Orbstack](https://orbstack.dev/)
+2. Enable Kubernetes in settings
+3. Wait for Kubernetes to start
 
 #### Option B: Local Development with Docker Desktop
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
@@ -256,7 +244,39 @@ kubectl cluster-info
 aws s3 ls s3://your-bucket/
 ```
 
-## Application Setup
+## Quick Start
+
+You can use the provided scripts to quickly deploy or clean up the entire application:
+
+### Deploy Everything
+```bash
+# Deploy all components (MinIO, CloudNativePG, FastAPI app)
+./deploy.sh
+```
+
+This script will:
+1. Set up Python virtual environment
+2. Deploy MinIO and create required bucket
+3. Build the FastAPI application
+4. Install CloudNativePG operator (if not present)
+5. Deploy PostgreSQL cluster and application
+6. Set up port forwarding
+
+### Clean Up
+```bash
+# Clean up all resources
+./cleanup.sh
+```
+
+This script will:
+1. Remove all Kubernetes resources
+2. Clean up Docker containers and networks
+3. Optionally remove Docker images
+4. Optionally uninstall CloudNativePG operator
+
+For manual deployment steps, see the detailed instructions below. 
+
+## Application Setup - if you are not using above Quick Start Scripts
 
 1. Clone the repository
 
@@ -551,34 +571,147 @@ kubectl delete namespace cnpg-system
 
 Note: Be careful when running cleanup commands in a production environment. Make sure to backup any important data before deleting resources. 
 
-## Quick Start
+## Load Testing
 
-You can use the provided scripts to quickly deploy or clean up the entire application:
+The repository includes a load testing script that performs various API operations with high transaction volume:
 
-### Deploy Everything
 ```bash
-# Deploy all components (MinIO, CloudNativePG, FastAPI app)
-./deploy.sh
+# Run with default settings (10,000 requests)
+./test_load.py
+
+# Run with custom number of requests
+./test_load.py --requests 20000
+
+# Test against a different URL
+./test_load.py --url http://your-api-url:8000
 ```
 
-This script will:
-1. Set up Python virtual environment
-2. Deploy MinIO and create required bucket
-3. Build the FastAPI application
-4. Install CloudNativePG operator (if not present)
-5. Deploy PostgreSQL cluster and application
-6. Set up port forwarding
+The test script performs:
+1. Creation of items (25% of requests)
+2. Mixed read/update/list operations (50% of requests)
+3. Deletion of items (25% of requests)
 
-### Clean Up
+The script provides detailed statistics including:
+- Success/failure rates for each operation
+- Average response times
+- Total duration and requests per second
+
+Note: Make sure to activate your Python virtual environment before running the test:
 ```bash
-# Clean up all resources
-./cleanup.sh
+source venv/bin/activate
 ```
 
-This script will:
-1. Remove all Kubernetes resources
-2. Clean up Docker containers and networks
-3. Optionally remove Docker images
-4. Optionally uninstall CloudNativePG operator
+## Failover Testing
 
-For manual deployment steps, see the detailed instructions below. 
+CloudNativePG provides several ways to test failover scenarios. Here are the main methods:
+
+### 1. Manual Failover
+
+To perform a manual failover:
+
+```bash
+# Get the current primary pod
+kubectl get pods -l postgresql=pg-demo-cluster -o wide
+
+# Trigger a manual failover to a specific instance
+kubectl patch cluster pg-demo-cluster --type merge -p '{"spec":{"primaryUpdateStrategy":"unsupervised"}}'
+kubectl patch cluster pg-demo-cluster --type merge -p '{"spec":{"primaryUpdateMethod":"switchover"}}'
+kubectl patch cluster pg-demo-cluster --type merge -p '{"spec":{"targetPrimary":"pg-demo-cluster-2"}}'  # Replace with your target instance
+```
+
+### 2. Simulate Node Failure
+
+To simulate a node failure (the operator will automatically handle failover):
+
+```bash
+# Get the current primary pod
+kubectl get pods -l postgresql=pg-demo-cluster -o wide
+
+# Delete the primary pod to simulate a crash
+kubectl delete pod <primary-pod-name>
+```
+
+### 3. Monitor Failover Progress
+
+During a failover, you can monitor the progress:
+
+```bash
+# Watch the cluster status
+kubectl get cluster pg-demo-cluster -w
+
+# Check pod status
+kubectl get pods -l postgresql=pg-demo-cluster -w
+
+# View operator logs
+kubectl logs -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg -f
+```
+
+### 4. Verify Failover Success
+
+After failover, verify the new primary:
+
+```bash
+# Check cluster status
+kubectl get cluster pg-demo-cluster
+
+# Verify primary role
+kubectl get pods -l postgresql=pg-demo-cluster -o wide
+
+# Test application connectivity
+curl http://localhost:8000/health
+```
+
+### 5. Failover Testing with Load
+
+To test failover under load:
+
+1. Start the load test:
+```bash
+./test_load.py
+```
+
+2. In another terminal, trigger a failover:
+```bash
+# Get current primary
+kubectl get pods -l postgresql=pg-demo-cluster -o wide
+
+# Trigger failover
+kubectl delete pod <primary-pod-name>
+```
+
+3. Monitor the application's behavior during failover:
+```bash
+# Watch cluster status
+kubectl get cluster pg-demo-cluster -w
+
+# Check application logs
+kubectl logs -l app=fastapi-demo -f
+```
+
+The application should continue operating with minimal disruption due to:
+- Connection pooling
+- Automatic retry mechanisms
+- Read/write splitting
+- Health check monitoring
+
+### Failover Recovery Time
+
+Typical failover times:
+- Switchover (planned): 5-10 seconds
+- Failover (unplanned): 10-30 seconds
+
+Factors affecting recovery time:
+- Database size
+- Number of concurrent connections
+- System resources
+- Network latency
+- WAL archiving configuration
+
+### Best Practices
+
+1. Always test failover scenarios in a non-production environment first
+2. Monitor the failover process using the provided commands
+3. Verify application connectivity after failover
+4. Keep track of failover times for capacity planning
+5. Ensure proper resource allocation for all instances
+6. Maintain regular backups before testing failover 

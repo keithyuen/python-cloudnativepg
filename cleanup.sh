@@ -11,6 +11,13 @@ kubectl delete -f k8s/cluster.yaml || true
 kubectl delete -f k8s/secrets.yaml || true
 kubectl delete -f k8s/minio-service.yaml || true
 
+echo "Cleaning up any remaining CloudNativePG clusters..."
+kubectl delete cluster --all || true
+kubectl delete pods -l postgresql=pg-demo-cluster || true
+kubectl delete pods -l postgresql=pg-demo-cluster-1 || true
+kubectl delete pvc -l postgresql=pg-demo-cluster || true
+kubectl delete pvc -l postgresql=pg-demo-cluster-1 || true
+
 echo "Cleaning up Docker resources..."
 docker stop minio || true
 docker rm minio || true
