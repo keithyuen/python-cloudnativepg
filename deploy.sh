@@ -74,7 +74,7 @@ kubectl wait --for=condition=available deployment/fastapi-demo --timeout=120s
 # Set up port forwarding
 echo "Setting up port forwarding..."
 kubectl port-forward svc/fastapi-demo 8000:80 &
-kubectl port-forward svc/pg-demo-cluster-rw 5432:5432 &
+# kubectl port-forward svc/pg-demo-cluster-rw 5432:5432 &
 
 echo "Deployment completed!"
 echo "FastAPI application is available at: http://localhost:8000"

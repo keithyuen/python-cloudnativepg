@@ -1,16 +1,14 @@
 # CloudNativePG (with MinIO backup) and Python Application Demo
 
-This demo application showcases how to work with CloudNativePG using Python, FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
+This demo application showcases how to work with CloudNativePG Kubernetes cluster of PostgreSQL databases using Python, FastAPI and SQLAlchemy. It demonstrates various features including connection to multiple database nodes, read/write operations, load balancing, and failover handling.
 
 ## Features
 
-- FastAPI-based REST API
+- CloudNativePG Cluster with 1 primary DB, 1 read-only DB and 1 standby DB
+- FastAPI-based Python Application
 - Connection to multiple database nodes (primary/replica)
-- Read/write operation examples
 - Load balancing demonstration
 - Failover handling
-- Prometheus metrics integration
-- Health check endpoint
 
 ## Prerequisites Installation
 
