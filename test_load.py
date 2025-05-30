@@ -25,7 +25,7 @@ class APILoadTester:
         start_time = time.time()
         try:
             async with session.post(f"{self.base_url}/items", 
-                json={"name": name, "description": f"Test item {name}"}) as response:
+                json={"title": name, "description": f"Test item {name}"}) as response:
                 if response.status == 200:
                     item = await response.json()
                     self.items.append(item["id"])
@@ -54,7 +54,7 @@ class APILoadTester:
         start_time = time.time()
         try:
             async with session.put(f"{self.base_url}/items/{item_id}", 
-                json={"name": f"Updated {item_id}", "description": f"Updated test item {item_id}"}) as response:
+                json={"title": f"Updated {item_id}", "description": f"Updated test item {item_id}"}) as response:
                 if response.status == 200:
                     self.stats["update"]["success"] += 1
                 else:
