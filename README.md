@@ -8,6 +8,7 @@ This demo application showcases how to work with CloudNativePG Kubernetes cluste
 - FastAPI-based Python Application
 - Connection to multiple database nodes (primary/replica)
 - Load balancing demonstration
+- Barman backup to S3-compatible storage (AWS S3 / MinIO)
 - Failover handling
 
 ## Prerequisites Installation

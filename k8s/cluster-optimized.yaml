@@ -1,0 +1,89 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-demo-cluster
+spec:
+  instances: 5  # Increased from 3 to 5 for better read scaling
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  
+  # Resource allocation
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  
+  # Storage configuration
+  storage:
+    size: 5Gi  # Increased from 1Gi to 5Gi
+    storageClass: local-path
+  
+  # PostgreSQL parameters
+  postgresql:
+    parameters:
+      # Connection settings
+      max_connections: "500"  # Increased from 100
+      superuser_reserved_connections: "10"
+      
+      # Memory settings
+      shared_buffers: "512MB"  # Increased from 256MB
+      effective_cache_size: "1536MB"
+      maintenance_work_mem: "128MB"
+      work_mem: "16MB"
+      
+      # Write settings
+      wal_buffers: "16MB"
+      checkpoint_completion_target: "0.9"
+      max_wal_size: "2GB"
+      min_wal_size: "1GB"
+      
+      # Query optimization
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      
+      # Parallel query settings
+      max_parallel_workers_per_gather: "4"
+      max_parallel_workers: "8"
+      max_parallel_maintenance_workers: "4"
+      
+      # Logging
+      log_min_duration_statement: "1000"  # Log queries taking more than 1 second
+      
+      # Existing settings
+      archive_mode: "on"
+      archive_timeout: "5min"
+      wal_level: "logical"
+      max_replication_slots: "32"
+      max_wal_senders: "32"
+  
+  # High availability settings
+  primaryUpdateStrategy: "unsupervised"
+  primaryUpdateMethod: "switchover"
+  
+  # Backup configuration
+  backup:
+    barmanObjectStore:
+      destinationPath: "s3://cloudnativepg-backup/"
+      endpointURL: "http://minio.default.svc.cluster.local:9000"
+      s3Credentials:
+        accessKeyId:
+          name: s3-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: s3-creds
+          key: ACCESS_SECRET_KEY
+    retentionPolicy: "30d"
+  
+  # Monitoring
+  monitoring:
+    enablePodMonitor: true
+  
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: app_db
+      owner: app_user
+      secret:
+        name: app-user-secret 
