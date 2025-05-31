@@ -7,7 +7,6 @@ This demo application showcases how to work with CloudNativePG Kubernetes cluste
 - CloudNativePG Cluster with 1 primary DB, 1 read-only DB and 1 standby DB
 - FastAPI-based Python Application
 - Connection to multiple database nodes (primary/replica)
-- Load balancing demonstration
 - Barman backup to S3-compatible storage (AWS S3 / MinIO)
 - Failover handling
 
