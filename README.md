@@ -404,7 +404,7 @@ kubectl get pods -n cnpg-system
 2. Check PostgreSQL cluster status:
 ```bash
 kubectl get cluster pg-demo-cluster
-kubectl get pods -l postgresql=pg-demo-cluster
+kubectl get cluster pg-demo-cluster -o yaml
 ```
 
 3. Check application status:
@@ -608,8 +608,11 @@ CloudNativePG provides several ways to test failover scenarios. Here are the mai
 To perform a manual failover:
 
 ```bash
+# Check current pod 
+kubectl get cluster pg-demo-cluster -o yaml
+
 # Get the current primary pod
-kubectl get pods -l postgresql=pg-demo-cluster -o wide
+kubectl get cluster pg-demo-cluster -o jsonpath='{.status.currentPrimary}{"\n"}'
 
 # Trigger a manual failover to a specific instance
 kubectl patch cluster pg-demo-cluster --type merge -p '{"spec":{"primaryUpdateStrategy":"unsupervised"}}'
@@ -623,7 +626,7 @@ To simulate a node failure (the operator will automatically handle failover):
 
 ```bash
 # Get the current primary pod
-kubectl get pods -l postgresql=pg-demo-cluster -o wide
+kubectl get cluster pg-demo-cluster -o jsonpath='{.status.currentPrimary}{"\n"}'
 
 # Delete the primary pod to simulate a crash
 kubectl delete pod <primary-pod-name>
