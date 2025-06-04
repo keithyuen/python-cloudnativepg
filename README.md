@@ -88,7 +88,7 @@ You can use one of these options:
 - AWS S3: Create an account and bucket at [AWS Console](https://aws.amazon.com/)
 - MinIO: For local development
 
-#### Setting up MinIO:
+#### Setting up MinIO: (Optional. This is included in the quickstart script below)
 
 1. Create a Docker network for MinIO:
 ```bash
@@ -668,7 +668,7 @@ To test failover under load:
 
 1. Start the load test:
 ```bash
-./test_load.py
+./test_load.py --requests 2000 --url http://198.19.249.2
 ```
 
 2. In another terminal, trigger a failover:
