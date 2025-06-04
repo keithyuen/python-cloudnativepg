@@ -640,9 +640,6 @@ During a failover, you can monitor the progress:
 # Watch the cluster status
 kubectl get cluster pg-demo-cluster -w
 
-# Check pod status
-kubectl get pods -l postgresql=pg-demo-cluster -w
-
 # View operator logs
 kubectl logs -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg -f
 ```
